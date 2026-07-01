@@ -1,4 +1,4 @@
-# Northstar CRM — alpha
+# Multisoft CRM — alpha
 
 Локальна CRM для IT-компанії на Django REST Framework, Vue 3 та MySQL.
 
