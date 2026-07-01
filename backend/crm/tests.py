@@ -1,3 +1,4 @@
+from django.core import mail
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from rest_framework.authtoken.models import Token
@@ -156,6 +157,40 @@ class ClientAccessTests(APITestCase):
         profile.refresh_from_db()
         self.assertTrue(profile.is_deleted)
         self.assertEqual(DeletionRequest.objects.get(pk=request_id).status, "approved")
+
+    def test_rejection_reason_is_sent_in_notification_and_email(self):
+        profile = ClientProfile.objects.create(
+            created_by=self.employee,
+            **client_payload(email="rejected-delete@example.com"),
+        )
+        DirectClientAccess.objects.create(
+            client=profile,
+            employee=self.employee,
+            granted_by=self.employee,
+        )
+        self.authenticate(self.employee)
+        created = self.client.post(
+            "/api/deletion-requests/",
+            {"client_id": profile.id, "reason": "Анкету створено помилково"},
+            format="json",
+        )
+
+        self.authenticate(self.admin)
+        rejection_reason = "Анкета містить коректні дані клієнта."
+        response = self.client.post(
+            f"/api/deletion-requests/{created.data['id']}/decision/",
+            {"decision": "rejected", "note": rejection_reason},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        notification = Notification.objects.get(
+            user=self.employee,
+            kind="deletion_request_rejected",
+        )
+        self.assertIn(rejection_reason, notification.message)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(rejection_reason, mail.outbox[0].body)
 
     def test_admin_can_reject_only_self_registered_pool_client(self):
         client_user = User.objects.create_user(

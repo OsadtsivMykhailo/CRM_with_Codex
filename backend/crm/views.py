@@ -223,6 +223,8 @@ class DeletionRequestViewSet(
         else:
             title = "Запит на видалення відхилено"
             message = f"Запит щодо «{item.client.display_name}» відхилено."
+            if item.decision_note:
+                message += f"\nПричина відхилення: {item.decision_note}"
             email = True
         audit(request.user, f"deletion_request.{decision}", item, {"client_id": item.client_id})
         notify(item.requested_by, f"deletion_request_{decision}", title, message, item, email=email)
