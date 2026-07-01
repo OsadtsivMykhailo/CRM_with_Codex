@@ -51,7 +51,7 @@ onUnmounted(() => window.clearInterval(notificationTimer))
 <template>
   <div class="shell">
     <aside v-if="loggedIn" class="sidebar">
-      <div class="brand"><span>N</span><div>Northstar<small>CRM alpha</small></div></div>
+      <div class="brand"><span>M</span><div>Multisoft<small>CRM alpha</small></div></div>
       <nav>
         <RouterLink to="/">Огляд</RouterLink>
         <RouterLink v-if="user?.role === 'employee'" to="/clients">Клієнти</RouterLink>
