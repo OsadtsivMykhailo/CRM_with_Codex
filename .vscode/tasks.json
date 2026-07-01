@@ -1,0 +1,67 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CRM: Backend",
+      "type": "shell",
+      "command": "& '${workspaceFolder}\\.venv\\Scripts\\python.exe' '${workspaceFolder}\\backend\\manage.py' runserver 127.0.0.1:8000",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "CRM_USE_SQLITE": "1"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "django",
+        "pattern": {
+          "regexp": "^(.*)$",
+          "message": 1
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Watching for file changes|Performing system checks",
+          "endsPattern": "Starting development server at"
+        }
+      },
+      "presentation": {
+        "group": "crm",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "CRM: Frontend",
+      "type": "shell",
+      "command": "$env:Path = 'C:\\Users\\Admins\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin;' + $env:Path; & '${workspaceFolder}\\frontend\\node_modules\\.bin\\vite.cmd' --host 127.0.0.1",
+      "options": {
+        "cwd": "${workspaceFolder}\\frontend"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": {
+          "regexp": "^(.*)$",
+          "message": 1
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE",
+          "endsPattern": "Local:"
+        }
+      },
+      "presentation": {
+        "group": "crm",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "CRM: Start Alpha",
+      "dependsOn": [
+        "CRM: Backend",
+        "CRM: Frontend"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    }
+  ]
+}
