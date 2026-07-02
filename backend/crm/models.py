@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -60,6 +62,9 @@ class ClientProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_deleted = models.BooleanField(default=False)
     pool_reason = models.CharField(max_length=32, choices=PoolReason.choices, blank=True, default=PoolReason.NONE)
+    marketing_email_consent = models.BooleanField(default=False)
+    marketing_email_consent_updated_at = models.DateTimeField(null=True, blank=True)
+    unsubscribe_token = models.UUIDField(default=uuid.uuid4, db_index=True, editable=False)
 
     @property
     def display_name(self):
@@ -108,6 +113,185 @@ class ClientGroup(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.name
+
+
+class EmailServerConfiguration(models.Model):
+    name = models.CharField(max_length=150, default="Корпоративна пошта")
+    company_name = models.CharField(max_length=255, default="Multisoft Velari")
+    host = models.CharField(max_length=255, default="127.0.0.1")
+    port = models.PositiveIntegerField(default=1025)
+    username = models.CharField(max_length=255, blank=True)
+    encrypted_password = models.TextField(blank=True)
+    use_tls = models.BooleanField(default=False)
+    use_ssl = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="updated_email_server_configurations",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class SharedSender(models.Model):
+    name = models.CharField(max_length=150)
+    email = models.EmailField(unique=True)
+    allowed_employees = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="allowed_shared_senders",
+        blank=True,
+    )
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_shared_senders",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} <{self.email}>"
+
+
+class EmailTemplate(models.Model):
+    class Scope(models.TextChoices):
+        PERSONAL = "personal", "Особистий"
+        COMPANY = "company", "Спільний"
+
+    class MessageType(models.TextChoices):
+        SERVICE = "service", "Службовий"
+        MARKETING = "marketing", "Рекламний"
+
+    name = models.CharField(max_length=150)
+    scope = models.CharField(max_length=16, choices=Scope.choices)
+    message_type = models.CharField(max_length=16, choices=MessageType.choices, default=MessageType.SERVICE)
+    subject = models.CharField(max_length=255)
+    html_body = models.TextField()
+    text_body = models.TextField(blank=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="email_templates",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_email_templates",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["scope", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class EmailCampaign(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Чернетка"
+        QUEUED = "queued", "У черзі"
+        PROCESSING = "processing", "Надсилається"
+        COMPLETED = "completed", "Завершено"
+        PARTIAL_FAILED = "partial_failed", "Завершено з помилками"
+        FAILED = "failed", "Помилка"
+
+    class SenderType(models.TextChoices):
+        PERSONAL = "personal", "Особиста корпоративна адреса"
+        SHARED = "shared", "Загальна корпоративна адреса"
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="email_campaigns",
+    )
+    template = models.ForeignKey(
+        EmailTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="campaigns",
+    )
+    message_type = models.CharField(
+        max_length=16,
+        choices=EmailTemplate.MessageType.choices,
+        default=EmailTemplate.MessageType.SERVICE,
+    )
+    sender_type = models.CharField(max_length=16, choices=SenderType.choices)
+    shared_sender = models.ForeignKey(
+        SharedSender,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="campaigns",
+    )
+    from_name = models.CharField(max_length=150)
+    from_email = models.EmailField()
+    subject = models.CharField(max_length=255)
+    html_body = models.TextField()
+    text_body = models.TextField(blank=True)
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.DRAFT)
+    total_recipients = models.PositiveIntegerField(default=0)
+    sent_count = models.PositiveIntegerField(default=0)
+    failed_count = models.PositiveIntegerField(default=0)
+    skipped_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    queued_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.subject} (#{self.pk})"
+
+
+class EmailCampaignRecipient(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Очікує"
+        SENT = "sent", "Надіслано"
+        FAILED = "failed", "Помилка"
+        SKIPPED = "skipped", "Пропущено"
+
+    campaign = models.ForeignKey(EmailCampaign, on_delete=models.CASCADE, related_name="recipients")
+    client = models.ForeignKey(ClientProfile, on_delete=models.PROTECT, related_name="campaign_recipients")
+    email = models.EmailField()
+    display_name = models.CharField(max_length=255)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    error_message = models.TextField(blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(fields=["campaign", "email"], name="unique_campaign_recipient_email")
+        ]
+
+
+def campaign_attachment_path(instance, filename):
+    return f"email-campaigns/{instance.campaign_id}/{uuid.uuid4().hex}-{filename}"
+
+
+class EmailCampaignAttachment(models.Model):
+    campaign = models.ForeignKey(EmailCampaign, on_delete=models.CASCADE, related_name="attachments")
+    file = models.FileField(upload_to=campaign_attachment_path)
+    original_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=150, blank=True)
+    size = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
 
 class Notification(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
@@ -155,6 +339,101 @@ class DeletionRequest(models.Model):
 
     def __str__(self):
         return f"Запит #{self.pk}: {self.client.display_name}"
+
+
+class ClientGroupAdditionRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Очікує рішення"
+        APPROVED = "approved", "Схвалено"
+        REJECTED = "rejected", "Відхилено"
+        EXPIRED = "expired", "Автоматично відхилено"
+
+    client = models.ForeignKey(
+        ClientProfile, on_delete=models.PROTECT, related_name="group_addition_requests"
+    )
+    group = models.ForeignKey(
+        ClientGroup, on_delete=models.PROTECT, related_name="addition_requests"
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_client_group_addition_requests",
+    )
+    reason = models.TextField()
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="decided_client_group_addition_requests",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-requested_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "group"],
+                condition=Q(status="pending"),
+                name="one_pending_client_group_addition",
+            )
+        ]
+
+    def __str__(self):
+        return f"Запит #{self.pk}: {self.client.display_name} → {self.group.name}"
+
+
+class ClientGroupCreationRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Очікує рішення"
+        APPROVED = "approved", "Схвалено"
+        REJECTED = "rejected", "Відхилено"
+        EXPIRED = "expired", "Автоматично відхилено"
+
+    proposed_name = models.CharField(max_length=150)
+    reason = models.TextField()
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_client_group_creation_requests",
+    )
+    proposed_clients = models.ManyToManyField(
+        ClientProfile, related_name="proposed_group_creation_requests", blank=True
+    )
+    proposed_employees = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="proposed_client_group_responsibilities",
+        blank=True,
+    )
+    created_group = models.OneToOneField(
+        ClientGroup,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="creation_request",
+    )
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="decided_client_group_creation_requests",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-requested_at"]
+
+    def __str__(self):
+        return f"Запит #{self.pk}: створення групи «{self.proposed_name}»"
 
 
 class AuditLog(models.Model):

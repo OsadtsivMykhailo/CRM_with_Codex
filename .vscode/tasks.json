@@ -55,10 +55,73 @@
       }
     },
     {
+      "label": "CRM: Email Worker",
+      "type": "shell",
+      "command": "& '${workspaceFolder}\\.venv\\Scripts\\python.exe' '${workspaceFolder}\\backend\\manage.py' process_email_queue",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "CRM_USE_SQLITE": "1",
+          "PYTHONUNBUFFERED": "1"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "crm-email-worker",
+        "pattern": {
+          "regexp": "^(.*)$",
+          "message": 1
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "EMAIL_WORKER_STARTING",
+          "endsPattern": "EMAIL_WORKER_READY"
+        }
+      },
+      "presentation": {
+        "group": "crm",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "CRM: Mailpit",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\run-mailpit.ps1"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "mailpit",
+        "pattern": {
+          "regexp": "^(.*)$",
+          "message": 1
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "MAILPIT_STARTING",
+          "endsPattern": "MAILPIT_READY"
+        }
+      },
+      "presentation": {
+        "group": "crm",
+        "panel": "dedicated"
+      }
+    },
+    {
       "label": "CRM: Start Alpha",
       "dependsOn": [
         "CRM: Backend",
-        "CRM: Frontend"
+        "CRM: Frontend",
+        "CRM: Email Worker",
+        "CRM: Mailpit"
       ],
       "dependsOrder": "parallel",
       "problemMatcher": []

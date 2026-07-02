@@ -7,6 +7,8 @@ from django.utils import timezone
 from accounts.models import User
 from .models import (
     AuditLog,
+    ClientGroupAdditionRequest,
+    ClientGroupCreationRequest,
     ClientProfile,
     DeletionRequest,
     DirectClientAccess,
@@ -81,7 +83,8 @@ def notify_admins(kind, title, message, instance=None):
 def responsible_employees(client):
     return User.objects.filter(
         Q(direct_client_accesses__client=client, direct_client_accesses__revoked_at__isnull=True)
-        | Q(employee_groups__client_accesses__client=client),
+        | Q(employee_groups__client_accesses__client=client)
+        | Q(editable_client_groups__clients=client),
         role=User.Role.EMPLOYEE,
         is_active=True,
     ).select_related("employee_profile").distinct()
@@ -157,3 +160,69 @@ def expire_stale_deletion_requests():
             item,
             email=True,
         )
+
+
+def expire_stale_client_group_addition_requests():
+    now = timezone.now()
+    stale = ClientGroupAdditionRequest.objects.filter(
+        status=ClientGroupAdditionRequest.Status.PENDING,
+        expires_at__lte=now,
+    )
+    for item in stale.select_related("requested_by", "client", "group"):
+        item.status = ClientGroupAdditionRequest.Status.EXPIRED
+        item.decided_at = now
+        item.decision_note = "Рішення не прийнято протягом семи днів."
+        item.save(update_fields=["status", "decided_at", "decision_note"])
+        Notification.objects.filter(
+            kind="client_group_addition_request_created",
+            entity_id=str(item.id),
+            read_at__isnull=True,
+        ).update(read_at=now)
+        audit(None, "client_group_addition_request.expired", item, {
+            "client_id": item.client_id,
+            "group_id": item.group_id,
+        })
+        notify(
+            item.requested_by,
+            "client_group_addition_request_expired",
+            "Запит на додавання до групи автоматично відхилено",
+            f"Запит щодо «{item.client.display_name}» і групи «{item.group.name}» "
+            "не розглянули протягом семи днів.",
+            item,
+            email=True,
+        )
+
+
+def expire_stale_client_group_creation_requests():
+    now = timezone.now()
+    stale = ClientGroupCreationRequest.objects.filter(
+        status=ClientGroupCreationRequest.Status.PENDING,
+        expires_at__lte=now,
+    )
+    for item in stale.select_related("requested_by"):
+        item.status = ClientGroupCreationRequest.Status.EXPIRED
+        item.decided_at = now
+        item.decision_note = "Рішення не прийнято протягом семи днів."
+        item.save(update_fields=["status", "decided_at", "decision_note"])
+        Notification.objects.filter(
+            kind="client_group_creation_request_created",
+            entity_id=str(item.id),
+            read_at__isnull=True,
+        ).update(read_at=now)
+        audit(None, "client_group_creation_request.expired", item, {
+            "proposed_name": item.proposed_name,
+        })
+        notify(
+            item.requested_by,
+            "client_group_creation_request_expired",
+            "Запит на створення групи автоматично відхилено",
+            f"Запит на створення групи «{item.proposed_name}» не розглянули протягом семи днів.",
+            item,
+            email=True,
+        )
+
+
+def expire_stale_requests():
+    expire_stale_deletion_requests()
+    expire_stale_client_group_addition_requests()
+    expire_stale_client_group_creation_requests()

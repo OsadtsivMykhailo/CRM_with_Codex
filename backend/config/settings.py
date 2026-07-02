@@ -83,3 +83,6 @@ CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "crm@local.test")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:5173")
+BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://127.0.0.1:8000")
+CRM_CREDENTIAL_ENCRYPTION_KEY = os.getenv("CRM_CREDENTIAL_ENCRYPTION_KEY", "")

@@ -10,6 +10,7 @@ const form = reactive({
   client_type: 'person', username: '', password: '', first_name: '', last_name: '', company_name: '',
   contact_person: '', email: '', phone: '', country: 'Україна', city: '', preferred_contact: 'email',
   requested_service: '', project_request: '',
+  marketing_email_consent: false,
 })
 
 async function submit() {
@@ -39,6 +40,7 @@ async function submit() {
         <label>Бажаний зв’язок<select v-model="form.preferred_contact"><option value="email">Email</option><option value="phone">Телефон</option></select></label>
       </div>
       <label>Опис запиту<textarea v-model="form.project_request" rows="4" required /></label>
+      <label class="checkbox consent-line"><input v-model="form.marketing_email_consent" type="checkbox" /> Я погоджуюся отримувати рекламні та інформаційні розсилки. Згоду можна відкликати в кабінеті.</label>
       <p v-if="error" class="error">{{ error }}</p><button>Створити акаунт</button>
       <RouterLink to="/login">Уже маю акаунт</RouterLink>
     </form>

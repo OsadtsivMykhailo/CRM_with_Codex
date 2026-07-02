@@ -55,12 +55,16 @@ onUnmounted(() => window.clearInterval(notificationTimer))
       <nav>
         <RouterLink to="/">Огляд</RouterLink>
         <RouterLink v-if="user?.role === 'employee'" to="/clients">Клієнти</RouterLink>
+        <RouterLink v-if="user?.role === 'employee'" to="/client-groups">Групи клієнтів</RouterLink>
+        <RouterLink v-if="user?.role === 'employee'" to="/campaigns">Розсилки</RouterLink>
         <RouterLink v-if="user?.role === 'client'" to="/my-account">Мій кабінет</RouterLink>
         <template v-if="user?.role === 'admin'">
           <RouterLink to="/employees">Працівники</RouterLink>
           <RouterLink to="/unassigned">Нові клієнти</RouterLink>
           <RouterLink to="/requests">Запити</RouterLink>
           <RouterLink to="/audit">Журнал дій</RouterLink>
+          <RouterLink to="/client-groups">Групи клієнтів</RouterLink>
+          <RouterLink to="/email-settings">Email-налаштування</RouterLink>
         </template>
         <RouterLink class="notification-link" to="/notifications">
           Сповіщення <span v-if="unreadCount" class="badge">{{ unreadCount }}</span>

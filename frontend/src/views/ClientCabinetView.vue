@@ -7,10 +7,20 @@ const form = reactive({})
 const editing = ref(false)
 const error = ref('')
 const message = ref('')
+const marketingConsent = ref(false)
 
 async function load() {
-  try { client.value = await api('/clients/mine/'); Object.assign(form, client.value) }
+  try { client.value = await api('/clients/mine/'); Object.assign(form, client.value); marketingConsent.value = client.value.marketing_email_consent }
   catch (e) { error.value = e.message }
+}
+async function saveEmailPreference() {
+  error.value = ''; message.value = ''
+  try {
+    const result = await api('/clients/email-preferences/', { method: 'PATCH', body: JSON.stringify({ marketing_email_consent: marketingConsent.value }) })
+    marketingConsent.value = result.marketing_email_consent
+    client.value.marketing_email_consent = result.marketing_email_consent
+    message.value = 'Налаштування розсилок оновлено.'
+  } catch (e) { error.value = e.message }
 }
 async function save() {
   error.value = ''; message.value = ''
@@ -44,6 +54,7 @@ onMounted(load)
       <article class="panel"><h2>Стан проєкту</h2><div class="progress"><span :style="{ width: `${client.project_progress}%` }" /></div><strong class="progress-label">{{ client.project_progress }}%</strong><dl><dt>Статус</dt><dd>{{ client.status }}</dd><dt>Оновлення</dt><dd>{{ client.project_status_note || 'Відповідальний працівник ще не додав оновлення.' }}</dd></dl></article>
       <article class="panel"><h2>Відповідальні працівники</h2><div v-for="employee in client.responsible_employees" :key="employee.id" class="contact-card"><strong>{{ employee.first_name }} {{ employee.last_name }}</strong><small>{{ employee.position }}</small><a :href="`mailto:${employee.email}`">{{ employee.email }}</a><span>{{ employee.phone }}</span></div><p v-if="!client.responsible_employees.length">Працівника ще не призначено.</p></article>
       <article class="panel span-two"><h2>Моя анкета</h2><dl class="columns"><dt>Email</dt><dd>{{ client.email }}</dd><dt>Телефон</dt><dd>{{ client.phone }}</dd><dt>Послуга</dt><dd>{{ client.requested_service }}</dd><dt>Запит</dt><dd class="preline">{{ client.project_request }}</dd></dl></article>
+      <article class="panel span-two"><h2>Email-розсилки</h2><p>Службові повідомлення щодо вашого проєкту надсилаються незалежно від цього налаштування.</p><label class="checkbox consent-line"><input v-model="marketingConsent" type="checkbox" /> Я погоджуюся отримувати рекламні та інформаційні листи.</label><button class="preference-button" @click="saveEmailPreference">Зберегти налаштування</button></article>
     </section>
   </div>
   <p v-else-if="error" class="error">{{ error }}</p>

@@ -67,7 +67,7 @@ onMounted(load)
     <h2 class="span-two">{{ editingId ? 'Редагування працівника' : 'Новий працівник' }}</h2>
     <label>Логін<input v-model="form.username" required /></label>
     <label>Пароль<input v-model="form.password" type="password" :required="!editingId" minlength="8" :placeholder="editingId ? 'Залиште порожнім без зміни' : ''" /></label>
-    <label>Email<input v-model="form.email" type="email" required /></label>
+    <label>Корпоративний email<input v-model="form.email" type="email" required /></label>
     <label>Ім’я<input v-model="form.first_name" required /></label>
     <label>По батькові<input v-model="form.middle_name" /></label>
     <label>Прізвище<input v-model="form.last_name" required /></label>

@@ -10,3 +10,4 @@ frontend/dist/
 .pnpm-store/
 *.log
 .idea/
+.tools/

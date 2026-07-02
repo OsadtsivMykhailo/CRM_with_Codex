@@ -5,15 +5,17 @@ import { api } from '../api'
 
 const router = useRouter()
 const clients = ref([])
+const groups = ref([])
 const error = ref('')
 const showForm = ref(false)
 const form = reactive({
-  client_type: 'person', first_name: '', last_name: '', company_name: '', email: '', phone: '',
+  client_type: 'person', first_name: '', last_name: '', company_name: '', contact_person: '', email: '', phone: '',
   country: 'Україна', city: '', preferred_contact: 'email', requested_service: '', project_request: '',
+  client_group_id: null,
 })
 
 async function load() {
-  try { clients.value = await api('/clients/') }
+  try { [clients.value, groups.value] = await Promise.all([api('/clients/'), api('/client-groups/')]) }
   catch (e) { error.value = e.message }
 }
 async function create() {
@@ -33,9 +35,11 @@ onMounted(load)
   <form v-if="showForm" class="panel grid two" @submit.prevent="create">
     <label>Тип<select v-model="form.client_type"><option value="person">Фізична особа</option><option value="company">Компанія</option></select></label>
     <label v-if="form.client_type === 'company'">Компанія<input v-model="form.company_name" required /></label>
+    <label v-if="form.client_type === 'company'">Контактна особа<input v-model="form.contact_person" /></label>
     <template v-else><label>Ім’я<input v-model="form.first_name" required /></label><label>Прізвище<input v-model="form.last_name" /></label></template>
     <label>Email<input v-model="form.email" type="email" required /></label><label>Телефон<input v-model="form.phone" required /></label>
     <label>Місто<input v-model="form.city" required /></label><label>Послуга<input v-model="form.requested_service" required /></label>
+    <label class="span-two">Група (необов’язково)<select v-model="form.client_group_id"><option :value="null">Без групи</option><option v-for="group in groups" :key="group.id" :value="group.id">{{ group.name }}</option></select><small>Доступні лише групи, за які ви відповідаєте.</small></label>
     <label class="span-two">Запит<textarea v-model="form.project_request" required /></label><button>Зберегти й відкрити</button>
   </form>
   <p v-if="error" class="error">{{ error }}</p>
